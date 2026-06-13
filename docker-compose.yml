@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ticketr
+      POSTGRES_PASSWORD: ticketr
+      POSTGRES_DB: ticketr
+    volumes:
+      - ticketr_pg_data:/var/lib/postgresql/data
+
+volumes:
+  ticketr_pg_data:

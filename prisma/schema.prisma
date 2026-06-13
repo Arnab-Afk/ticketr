@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  agent
+  admin
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  waiting_on_user
+  resolved
+  closed
+}
+
+enum TicketPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?
+  fullName     String
+  role         UserRole  @default(user)
+  avatarUrl    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  accounts        Account[]
+  ticketsCreated  Ticket[]          @relation("TicketCreator")
+  ticketsAssigned Ticket[]          @relation("TicketAssignee")
+  messages        TicketMessage[]
+  attachments     TicketAttachment[]
+  cannedResponses CannedResponse[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model TicketCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  subject     String
+  description String
+  status      TicketStatus   @default(open)
+  priority    TicketPriority @default(normal)
+  categoryId  String
+  createdById String
+  assigneeId  String?
+  publicToken String?        @unique
+  guestEmail  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  closedAt    DateTime?
+
+  category    TicketCategory     @relation(fields: [categoryId], references: [id])
+  creator     User               @relation("TicketCreator", fields: [createdById], references: [id])
+  assignee    User?              @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+
+  @@index([createdById])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([publicToken])
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String
+  body       String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket      Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User               @relation(fields: [authorId], references: [id])
+  attachments TicketAttachment[]
+
+  @@index([ticketId])
+}
+
+model TicketAttachment {
+  id           String   @id @default(cuid())
+  ticketId     String?
+  messageId    String?
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  ticket     Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message    TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy User           @relation(fields: [uploadedById], references: [id])
+
+  @@index([ticketId])
+  @@index([messageId])
+}
+
+model CannedResponse {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  shortcut    String?  @unique
+  createdById String
+  isGlobal    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator User @relation(fields: [createdById], references: [id])
+
+  @@index([isGlobal])
+}
