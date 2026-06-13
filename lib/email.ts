@@ -1,12 +1,62 @@
-import { Resend } from "resend";
+import type { TicketPriority, TicketStatus } from "@prisma/client";
+import { renderReceiptEmail } from "@/lib/email-templates";
+import { formatReceiptDate, formatTicketNumber } from "@/lib/email-format";
+import {
+  buildReceiptContent,
+  type TicketEmailEvent,
+} from "@/lib/email-receipt";
 
 const appUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-const fromEmail = process.env.EMAIL_FROM ?? "ticketr <onboarding@resend.dev>";
+const appName = process.env.TICKETR_NAME ?? "ticketr";
 
-function getResend(): Resend | null {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return null;
-  return new Resend(apiKey);
+function zeptoApiUrl() {
+  return process.env.ZEPTO_API_URL ?? "https://api.zeptomail.com/v1.1/email";
+}
+
+function isZeptoConfigured(): boolean {
+  return Boolean(process.env.ZEPTO_API_KEY && process.env.ZEPTO_FROM_ADDRESS);
+}
+
+async function sendEmail(params: {
+  to: string;
+  toName?: string;
+  subject: string;
+  html: string;
+  ticketNumber: string;
+}) {
+  if (!isZeptoConfigured()) return;
+
+  const { zeptoInlineImages } = await import("@/lib/email-brand-images");
+  const fromAddress = process.env.ZEPTO_FROM_ADDRESS!;
+  const fromName = process.env.ZEPTO_FROM_NAME ?? appName;
+
+  const response = await fetch(zeptoApiUrl(), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Zoho-enczapikey ${process.env.ZEPTO_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: { address: fromAddress, name: fromName },
+      to: [
+        {
+          email_address: {
+            address: params.to,
+            ...(params.toName ? { name: params.toName } : {}),
+          },
+        },
+      ],
+      subject: params.subject,
+      htmlbody: params.html,
+      inline_images: await zeptoInlineImages(params.ticketNumber),
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`ZeptoMail failed (${response.status}): ${body}`);
+  }
 }
 
 function ticketUrl(ticketId: string, publicToken?: string | null) {
@@ -16,6 +66,59 @@ function ticketUrl(ticketId: string, publicToken?: string | null) {
   return `${appUrl}/tickets/${ticketId}`;
 }
 
+function adminTicketUrl(ticketId: string) {
+  return `${appUrl}/admin/tickets/${ticketId}`;
+}
+
+function receiptVars(ticketId: string) {
+  return {
+    ticketNumber: formatTicketNumber(ticketId),
+    receiptDate: formatReceiptDate(),
+  };
+}
+
+function renderEventEmail(
+  event: TicketEmailEvent,
+  params: {
+    ticketId: string;
+    ticketUrl: string;
+    requesterName: string;
+    requesterEmail?: string;
+    subject: string;
+    status: TicketStatus;
+    priority: TicketPriority;
+    assigneeName?: string;
+    previousPriority?: TicketPriority;
+    previousStatus?: TicketStatus;
+  }
+) {
+  const number = formatTicketNumber(params.ticketId);
+  const content = buildReceiptContent(event, {
+    ticketNumber: number,
+    requesterName: params.requesterName,
+    requesterEmail: params.requesterEmail,
+    subject: params.subject,
+    status: params.status,
+    priority: params.priority,
+    assigneeName: params.assigneeName,
+    previousPriority: params.previousPriority,
+    previousStatus: params.previousStatus,
+  });
+
+  return {
+    subject: `[${appName}] ${content.subject}`,
+    html: renderReceiptEmail({
+      ...content,
+      ticketUrl: params.ticketUrl,
+      ...receiptVars(params.ticketId),
+      extraBlockHtml: content.extraBlockHtml ?? "",
+      summaryRightSize: content.summaryRightSize ?? "18px",
+      summaryRightColor: content.summaryRightColor ?? "#111",
+      buttonColor: content.buttonColor ?? "#111",
+    }),
+  };
+}
+
 export async function sendTicketCreatedEmail(params: {
   to: string;
   requesterName: string;
@@ -23,25 +126,22 @@ export async function sendTicketCreatedEmail(params: {
   subject: string;
   publicToken?: string | null;
 }) {
-  const resend = getResend();
-  if (!resend) return;
-
+  const { renderEmailTemplate } = await import("@/lib/email-templates");
   const url = ticketUrl(params.ticketId, params.publicToken);
+  const number = formatTicketNumber(params.ticketId);
 
-  await resend.emails.send({
-    from: fromEmail,
+  await sendEmail({
     to: params.to,
-    subject: `[ticketr] Ticket created: ${params.subject}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-        <h2 style="color:#167E6C">Your support ticket was received</h2>
-        <p>Hi ${params.requesterName},</p>
-        <p>We received your request: <strong>${params.subject}</strong></p>
-        <p>Track your ticket and reply here:</p>
-        <p><a href="${url}" style="color:#167E6C">${url}</a></p>
-        <p style="color:#666;font-size:13px">— ticketr support</p>
-      </div>
-    `,
+    toName: params.requesterName,
+    subject: `[${appName}] RECEIPT #${number} — request queued`,
+    ticketNumber: number,
+    html: renderEmailTemplate("ticket-created", {
+      preheader: `Receipt #${number}: your support request is in the queue.`,
+      requesterName: params.requesterName,
+      subject: params.subject,
+      ticketUrl: url,
+      ...receiptVars(params.ticketId),
+    }),
   });
 }
 
@@ -54,28 +154,27 @@ export async function sendTicketReplyEmail(params: {
   publicToken?: string | null;
   isStaffReply: boolean;
 }) {
-  const resend = getResend();
-  if (!resend) return;
-
+  const { renderEmailTemplate, truncatePreview } = await import("@/lib/email-templates");
   const url = ticketUrl(params.ticketId, params.publicToken);
-  const heading = params.isStaffReply ? "New reply from support" : "New reply on your ticket";
+  const heading = params.isStaffReply
+    ? "NEW REPLY FROM SUPPORT"
+    : "NEW CUSTOMER REPLY";
+  const number = formatTicketNumber(params.ticketId);
 
-  await resend.emails.send({
-    from: fromEmail,
+  await sendEmail({
     to: params.to,
-    subject: `[ticketr] ${heading}: ${params.subject}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-        <h2 style="color:#167E6C">${heading}</h2>
-        <p>Hi ${params.requesterName},</p>
-        <p><strong>${params.subject}</strong></p>
-        <blockquote style="border-left:3px solid #167E6C;padding-left:12px;color:#444;margin:16px 0">
-          ${params.replyPreview.slice(0, 500)}${params.replyPreview.length > 500 ? "…" : ""}
-        </blockquote>
-        <p><a href="${url}" style="color:#167E6C">View and reply →</a></p>
-        <p style="color:#666;font-size:13px">— ticketr support</p>
-      </div>
-    `,
+    toName: params.requesterName,
+    subject: `[${appName}] UPDATE #${number} — ${heading.toLowerCase()}`,
+    ticketNumber: number,
+    html: renderEmailTemplate("ticket-reply", {
+      preheader: `${heading} on receipt #${number}`,
+      heading,
+      requesterName: params.requesterName,
+      subject: params.subject,
+      replyPreview: truncatePreview(params.replyPreview),
+      ticketUrl: url,
+      ...receiptVars(params.ticketId),
+    }),
   });
 }
 
@@ -86,26 +185,70 @@ export async function sendStaffNewTicketEmail(params: {
   requesterEmail: string;
   ticketId: string;
 }) {
-  const resend = getResend();
-  if (!resend) return;
+  const { renderEmailTemplate } = await import("@/lib/email-templates");
+  const url = adminTicketUrl(params.ticketId);
+  const number = formatTicketNumber(params.ticketId);
 
-  const url = `${appUrl}/admin/tickets/${params.ticketId}`;
-
-  await resend.emails.send({
-    from: fromEmail,
+  await sendEmail({
     to: params.to,
-    subject: `[ticketr] New ticket: ${params.subject}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-        <h2 style="color:#167E6C">New support ticket</h2>
-        <p><strong>${params.subject}</strong></p>
-        <p>From ${params.requesterName} (${params.requesterEmail})</p>
-        <p><a href="${url}" style="color:#167E6C">Open in admin →</a></p>
-      </div>
-    `,
+    subject: `[${appName}] NEW ORDER #${number} — ${params.subject}`,
+    ticketNumber: number,
+    html: renderEmailTemplate("staff-new-ticket", {
+      preheader: `New support order from ${params.requesterName}`,
+      subject: params.subject,
+      requesterName: params.requesterName,
+      requesterEmail: params.requesterEmail,
+      ticketUrl: url,
+      ...receiptVars(params.ticketId),
+    }),
+  });
+}
+
+export async function sendTicketEventEmail(params: {
+  event: TicketEmailEvent;
+  to: string;
+  toName?: string;
+  ticketId: string;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  requesterName: string;
+  requesterEmail?: string;
+  publicToken?: string | null;
+  assigneeName?: string;
+  previousPriority?: TicketPriority;
+  previousStatus?: TicketStatus;
+  adminView?: boolean;
+}) {
+  const number = formatTicketNumber(params.ticketId);
+  const url = params.adminView
+    ? adminTicketUrl(params.ticketId)
+    : ticketUrl(params.ticketId, params.publicToken);
+
+  const { subject, html } = renderEventEmail(params.event, {
+    ticketId: params.ticketId,
+    ticketUrl: url,
+    requesterName: params.requesterName,
+    requesterEmail: params.requesterEmail,
+    subject: params.subject,
+    status: params.status,
+    priority: params.priority,
+    assigneeName: params.assigneeName,
+    previousPriority: params.previousPriority,
+    previousStatus: params.previousStatus,
+  });
+
+  await sendEmail({
+    to: params.to,
+    toName: params.toName,
+    subject,
+    ticketNumber: number,
+    html,
   });
 }
 
 export function isEmailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY);
+  return isZeptoConfigured();
 }
+
+export { buildReceiptContent, type TicketEmailEvent } from "@/lib/email-receipt";

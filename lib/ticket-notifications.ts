@@ -1,6 +1,8 @@
+import type { TicketPriority, TicketStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { statusToEvent } from "@/lib/email-receipt";
 
 export function generatePublicToken(): string {
   return randomBytes(24).toString("base64url");
@@ -34,6 +36,21 @@ export async function findOrCreateGuestUser(email: string, fullName: string) {
   });
 }
 
+type TicketNotifyShape = {
+  id: string;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  publicToken: string | null;
+  guestEmail: string | null;
+  creator: { fullName: string; email: string };
+  assignee: { fullName: string; email: string } | null;
+};
+
+function customerEmail(ticket: TicketNotifyShape) {
+  return ticket.guestEmail ?? ticket.creator.email;
+}
+
 export async function notifyStaffOfNewTicket(ticket: {
   id: string;
   subject: string;
@@ -57,6 +74,122 @@ export async function notifyStaffOfNewTicket(ticket: {
       })
     )
   );
+}
+
+export async function notifyTicketStatusChange(params: {
+  ticket: TicketNotifyShape;
+  previousStatus: TicketStatus;
+}) {
+  const event = statusToEvent(params.ticket.status, params.previousStatus);
+  if (!event) return;
+
+  const { sendTicketEventEmail } = await import("@/lib/email");
+
+  await sendTicketEventEmail({
+    event,
+    to: customerEmail(params.ticket),
+    toName: params.ticket.creator.fullName,
+    ticketId: params.ticket.id,
+    subject: params.ticket.subject,
+    status: params.ticket.status,
+    priority: params.ticket.priority,
+    requesterName: params.ticket.creator.fullName,
+    publicToken: params.ticket.publicToken,
+    assigneeName: params.ticket.assignee?.fullName,
+    previousStatus: params.previousStatus,
+  });
+}
+
+export async function notifyTicketAssigned(params: {
+  ticket: TicketNotifyShape;
+  assigneeEmail: string;
+  assigneeName: string;
+}) {
+  const { sendTicketEventEmail } = await import("@/lib/email");
+
+  await Promise.all([
+    sendTicketEventEmail({
+      event: "assigned",
+      to: customerEmail(params.ticket),
+      toName: params.ticket.creator.fullName,
+      ticketId: params.ticket.id,
+      subject: params.ticket.subject,
+      status: params.ticket.status,
+      priority: params.ticket.priority,
+      requesterName: params.ticket.creator.fullName,
+      publicToken: params.ticket.publicToken,
+      assigneeName: params.assigneeName,
+    }),
+    sendTicketEventEmail({
+      event: "staff_assigned",
+      to: params.assigneeEmail,
+      toName: params.assigneeName,
+      ticketId: params.ticket.id,
+      subject: params.ticket.subject,
+      status: params.ticket.status,
+      priority: params.ticket.priority,
+      requesterName: params.ticket.creator.fullName,
+      requesterEmail: params.ticket.creator.email,
+      assigneeName: params.assigneeName,
+      adminView: true,
+    }),
+  ]);
+}
+
+export async function notifyTicketPriorityChange(params: {
+  ticket: TicketNotifyShape;
+  previousPriority: TicketPriority;
+}) {
+  const { sendTicketEventEmail } = await import("@/lib/email");
+  const escalated =
+    params.ticket.priority === "urgent" || params.ticket.priority === "high";
+
+  const sends = [
+    sendTicketEventEmail({
+      event: "priority_changed",
+      to: customerEmail(params.ticket),
+      toName: params.ticket.creator.fullName,
+      ticketId: params.ticket.id,
+      subject: params.ticket.subject,
+      status: params.ticket.status,
+      priority: params.ticket.priority,
+      requesterName: params.ticket.creator.fullName,
+      publicToken: params.ticket.publicToken,
+      previousPriority: params.previousPriority,
+    }),
+  ];
+
+  if (escalated) {
+    const staffEmails = new Set<string>();
+    if (params.ticket.assignee) {
+      staffEmails.add(params.ticket.assignee.email);
+    } else {
+      const staff = await prisma.user.findMany({
+        where: { role: { in: ["admin", "agent"] } },
+        select: { email: true },
+      });
+      staff.forEach((s) => staffEmails.add(s.email));
+    }
+
+    for (const to of staffEmails) {
+      sends.push(
+        sendTicketEventEmail({
+          event: "staff_priority",
+          to,
+          ticketId: params.ticket.id,
+          subject: params.ticket.subject,
+          status: params.ticket.status,
+          priority: params.ticket.priority,
+          requesterName: params.ticket.creator.fullName,
+          requesterEmail: params.ticket.creator.email,
+          previousPriority: params.previousPriority,
+          adminView: true,
+        })
+      );
+    }
+  }
+
+  await Promise.all(sends);
 }
 
 export async function notifyTicketReply(params: {

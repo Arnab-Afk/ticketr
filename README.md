@@ -7,7 +7,7 @@ Modern, open-source support ticketing — self-hosted with a clean UI.
 - Participant portal: create tickets, track status, reply in threads
 - Admin queue: filter, assign, respond, internal notes
 - **Public support form** at `/support/new` (no login required)
-- **Email notifications** via Resend (new ticket + replies)
+- **Email notifications** via ZeptoMail (new ticket + replies)
 - **File attachments** via Cloudflare R2
 - **Canned responses** for agents
 - **OAuth** login (Google, GitHub)
@@ -35,14 +35,47 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Optional services
 
-### Email (Resend)
+### Email (ZeptoMail)
 
 ```env
-RESEND_API_KEY=re_...
-EMAIL_FROM="Support <support@yourdomain.com>"
+ZEPTO_API_KEY=your_send_mail_token
+ZEPTO_FROM_ADDRESS=support@yourdomain.com
+# India data center (optional; default is api.zeptomail.com)
+ZEPTO_API_URL=https://api.zeptomail.in/v1.1/email
 ```
 
 Without this, tickets work but no emails are sent.
+
+Email HTML templates live in `emails/` and are rendered via `lib/email-templates.ts`.
+
+| Template | Trigger |
+|----------|---------|
+| `ticket-created` | New ticket submitted |
+| `ticket-reply` | New message on a thread |
+| `staff-new-ticket` | New ticket (staff notification) |
+| `ticket-in-progress` | Status → in progress |
+| `ticket-waiting-on-user` | Status → waiting on user (follow-up) |
+| `ticket-resolved` | Status → resolved |
+| `ticket-closed` | Status → closed |
+| `ticket-reopened` | Status → open from resolved/closed |
+| `ticket-assigned` | Agent assigned (customer) |
+| `ticket-priority-changed` | Priority updated (customer) |
+| `ticket-staff-assigned` | Agent assigned (staff) |
+| `ticket-staff-priority` | High/urgent escalation (staff) |
+
+Status/assignment/priority emails share `receipt-layout.html` (config in `lib/email-receipt.ts`).
+
+Preview all templates in a browser:
+
+```bash
+npm run email:previews
+```
+
+Send a test email:
+
+```bash
+npx tsx scripts/send-test-email.ts ticket-resolved you@example.com
+```
 
 ### Attachments (Cloudflare R2)
 

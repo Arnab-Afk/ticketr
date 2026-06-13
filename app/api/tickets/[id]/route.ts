@@ -2,7 +2,11 @@ import { prisma } from "@/lib/db";
 import { auth, isStaff } from "@/lib/auth";
 import { jsonError, jsonSuccess } from "@/lib/api-client";
 import { ticketDetailInclude } from "@/lib/tickets";
-import { notifyTicketReply } from "@/lib/ticket-notifications";
+import {
+  notifyTicketAssigned,
+  notifyTicketPriorityChange,
+  notifyTicketStatusChange,
+} from "@/lib/ticket-notifications";
 
 export async function GET(
   _request: Request,
@@ -55,6 +59,18 @@ export async function PATCH(
   const { id } = await params;
 
   try {
+    const before = await prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        creator: { select: { fullName: true, email: true } },
+        assignee: { select: { fullName: true, email: true } },
+      },
+    });
+
+    if (!before) {
+      return jsonError("Ticket not found", 404);
+    }
+
     const body = await request.json();
     const data: Record<string, unknown> = {};
 
@@ -66,11 +82,56 @@ export async function PATCH(
       data.closedAt = new Date();
     }
 
+    if (
+      body.status &&
+      (body.status === "open" || body.status === "in_progress") &&
+      before.status !== body.status &&
+      (before.status === "resolved" || before.status === "closed")
+    ) {
+      data.closedAt = null;
+    }
+
     const ticket = await prisma.ticket.update({
       where: { id },
       data,
       include: ticketDetailInclude,
     });
+
+    const notifyTicket = {
+      id: ticket.id,
+      subject: ticket.subject,
+      status: ticket.status,
+      priority: ticket.priority,
+      publicToken: ticket.publicToken,
+      guestEmail: ticket.guestEmail,
+      creator: ticket.creator,
+      assignee: ticket.assignee,
+    };
+
+    if (body.status && body.status !== before.status) {
+      await notifyTicketStatusChange({
+        ticket: notifyTicket,
+        previousStatus: before.status,
+      });
+    }
+
+    if ("assigneeId" in body && body.assigneeId && body.assigneeId !== before.assigneeId) {
+      const assignee = ticket.assignee;
+      if (assignee) {
+        await notifyTicketAssigned({
+          ticket: notifyTicket,
+          assigneeEmail: assignee.email,
+          assigneeName: assignee.fullName,
+        });
+      }
+    }
+
+    if (body.priority && body.priority !== before.priority) {
+      await notifyTicketPriorityChange({
+        ticket: notifyTicket,
+        previousPriority: before.priority,
+      });
+    }
 
     return jsonSuccess(ticket);
   } catch {
