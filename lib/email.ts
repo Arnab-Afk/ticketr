@@ -1,4 +1,5 @@
 import type { TicketPriority, TicketStatus } from "@prisma/client";
+import { emailAppUrl, supportEmailAddress } from "@/lib/email-config";
 import { renderReceiptEmail } from "@/lib/email-templates";
 import { formatReceiptDate, formatTicketNumber } from "@/lib/email-format";
 import {
@@ -6,7 +7,6 @@ import {
   type TicketEmailEvent,
 } from "@/lib/email-receipt";
 
-const appUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const appName = process.env.TICKETR_NAME ?? "ticketr";
 
 function zeptoApiUrl() {
@@ -65,6 +65,7 @@ async function sendEmail(params: {
 }
 
 function ticketUrl(ticketId: string, publicToken?: string | null) {
+  const appUrl = emailAppUrl();
   if (publicToken) {
     return `${appUrl}/support/tickets/${publicToken}`;
   }
@@ -72,7 +73,7 @@ function ticketUrl(ticketId: string, publicToken?: string | null) {
 }
 
 function adminTicketUrl(ticketId: string) {
-  return `${appUrl}/admin/tickets/${ticketId}`;
+  return `${emailAppUrl()}/admin/tickets/${ticketId}`;
 }
 
 function receiptVars(ticketId: string) {
@@ -145,6 +146,7 @@ export async function sendTicketCreatedEmail(params: {
       requesterName: params.requesterName,
       subject: params.subject,
       ticketUrl: url,
+      supportEmail: supportEmailAddress(),
       ...receiptVars(params.ticketId),
     }),
   });
