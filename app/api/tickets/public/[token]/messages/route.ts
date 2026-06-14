@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { jsonError, jsonSuccess } from "@/lib/api-client";
-import { notifyTicketReply } from "@/lib/ticket-notifications";
+import { notifyAfterMessage } from "@/lib/ticket-notifications";
 
 export async function POST(
   request: Request,
@@ -23,6 +23,8 @@ export async function POST(
   if (ticket.status === "closed") {
     return jsonError("This ticket is closed", 400);
   }
+
+  const previousStatus = ticket.status;
 
   try {
     const body = await request.json();
@@ -68,16 +70,29 @@ export async function POST(
       return created;
     });
 
-    await notifyTicketReply({
-      ticket,
-      messageBody,
-      isStaffReply: false,
-      isInternal: false,
-      authorEmail: ticket.creator.email,
+    const updatedTicket = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+      include: {
+        creator: { select: { fullName: true, email: true } },
+        assignee: { select: { fullName: true, email: true } },
+      },
     });
 
+    if (updatedTicket) {
+      await notifyAfterMessage({
+        ticket: updatedTicket,
+        previousStatus,
+        messageBody,
+        attachmentCount: attachmentIds.length,
+        isStaffReply: false,
+        isInternal: false,
+        authorEmail: ticket.creator.email,
+      });
+    }
+
     return jsonSuccess(message, 201);
-  } catch {
+  } catch (error) {
+    console.error("[public-messages] failed:", error);
     return jsonError("Failed to send message", 500);
   }
 }

@@ -6,6 +6,7 @@ import {
   ALLOWED_ATTACHMENT_TYPES,
   ATTACHMENT_EXT_BY_TYPE,
   ATTACHMENT_MAX_BYTES,
+  getR2AttachmentPrefix,
   isR2Configured,
   uploadToR2,
 } from "@/lib/r2";
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ext = ATTACHMENT_EXT_BY_TYPE[file.type] ?? "bin";
-    const key = `attachments/${uploaderId}/${Date.now()}.${ext}`;
+    const key = `${getR2AttachmentPrefix()}/${uploaderId}/${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const url = await uploadToR2(key, buffer, file.type);
 

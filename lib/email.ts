@@ -24,7 +24,12 @@ async function sendEmail(params: {
   html: string;
   ticketNumber: string;
 }) {
-  if (!isZeptoConfigured()) return;
+  if (!isZeptoConfigured()) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[email] ZeptoMail not configured — set ZEPTO_API_KEY and ZEPTO_FROM_ADDRESS");
+    }
+    return;
+  }
 
   const { zeptoInlineImages } = await import("@/lib/email-brand-images");
   const fromAddress = process.env.ZEPTO_FROM_ADDRESS!;
@@ -153,9 +158,12 @@ export async function sendTicketReplyEmail(params: {
   replyPreview: string;
   publicToken?: string | null;
   isStaffReply: boolean;
+  adminView?: boolean;
 }) {
   const { renderEmailTemplate, truncatePreview } = await import("@/lib/email-templates");
-  const url = ticketUrl(params.ticketId, params.publicToken);
+  const url = params.adminView
+    ? adminTicketUrl(params.ticketId)
+    : ticketUrl(params.ticketId, params.publicToken);
   const heading = params.isStaffReply
     ? "NEW REPLY FROM SUPPORT"
     : "NEW CUSTOMER REPLY";

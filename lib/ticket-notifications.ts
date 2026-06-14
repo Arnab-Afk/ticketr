@@ -3,6 +3,11 @@ import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { statusToEvent } from "@/lib/email-receipt";
+import {
+  dispatchEmail,
+  dispatchEmails,
+  formatMessagePreview,
+} from "@/lib/email-dispatch";
 
 export function generatePublicToken(): string {
   return randomBytes(24).toString("base64url");
@@ -63,16 +68,32 @@ export async function notifyStaffOfNewTicket(ticket: {
     select: { email: true },
   });
 
-  await Promise.all(
-    staff.map((member) =>
-      sendStaffNewTicketEmail({
-        to: member.email,
-        subject: ticket.subject,
-        requesterName: ticket.creator.fullName,
-        requesterEmail: ticket.creator.email,
-        ticketId: ticket.id,
-      })
-    )
+  await dispatchEmails(
+    staff.map((member) => ({
+      label: `staff-new-ticket:${member.email}`,
+      fn: () =>
+        sendStaffNewTicketEmail({
+          to: member.email,
+          subject: ticket.subject,
+          requesterName: ticket.creator.fullName,
+          requesterEmail: ticket.creator.email,
+          ticketId: ticket.id,
+        }),
+    }))
+  );
+}
+
+export async function notifyTicketCreated(params: {
+  to: string;
+  requesterName: string;
+  ticketId: string;
+  subject: string;
+  publicToken?: string | null;
+}) {
+  const { sendTicketCreatedEmail } = await import("@/lib/email");
+
+  await dispatchEmail("ticket-created", () =>
+    sendTicketCreatedEmail(params)
   );
 }
 
@@ -85,19 +106,21 @@ export async function notifyTicketStatusChange(params: {
 
   const { sendTicketEventEmail } = await import("@/lib/email");
 
-  await sendTicketEventEmail({
-    event,
-    to: customerEmail(params.ticket),
-    toName: params.ticket.creator.fullName,
-    ticketId: params.ticket.id,
-    subject: params.ticket.subject,
-    status: params.ticket.status,
-    priority: params.ticket.priority,
-    requesterName: params.ticket.creator.fullName,
-    publicToken: params.ticket.publicToken,
-    assigneeName: params.ticket.assignee?.fullName,
-    previousStatus: params.previousStatus,
-  });
+  await dispatchEmail(`status:${event}`, () =>
+    sendTicketEventEmail({
+      event,
+      to: customerEmail(params.ticket),
+      toName: params.ticket.creator.fullName,
+      ticketId: params.ticket.id,
+      subject: params.ticket.subject,
+      status: params.ticket.status,
+      priority: params.ticket.priority,
+      requesterName: params.ticket.creator.fullName,
+      publicToken: params.ticket.publicToken,
+      assigneeName: params.ticket.assignee?.fullName,
+      previousStatus: params.previousStatus,
+    })
+  );
 }
 
 export async function notifyTicketAssigned(params: {
@@ -107,32 +130,40 @@ export async function notifyTicketAssigned(params: {
 }) {
   const { sendTicketEventEmail } = await import("@/lib/email");
 
-  await Promise.all([
-    sendTicketEventEmail({
-      event: "assigned",
-      to: customerEmail(params.ticket),
-      toName: params.ticket.creator.fullName,
-      ticketId: params.ticket.id,
-      subject: params.ticket.subject,
-      status: params.ticket.status,
-      priority: params.ticket.priority,
-      requesterName: params.ticket.creator.fullName,
-      publicToken: params.ticket.publicToken,
-      assigneeName: params.assigneeName,
-    }),
-    sendTicketEventEmail({
-      event: "staff_assigned",
-      to: params.assigneeEmail,
-      toName: params.assigneeName,
-      ticketId: params.ticket.id,
-      subject: params.ticket.subject,
-      status: params.ticket.status,
-      priority: params.ticket.priority,
-      requesterName: params.ticket.creator.fullName,
-      requesterEmail: params.ticket.creator.email,
-      assigneeName: params.assigneeName,
-      adminView: true,
-    }),
+  await dispatchEmails([
+    {
+      label: "assigned:customer",
+      fn: () =>
+        sendTicketEventEmail({
+          event: "assigned",
+          to: customerEmail(params.ticket),
+          toName: params.ticket.creator.fullName,
+          ticketId: params.ticket.id,
+          subject: params.ticket.subject,
+          status: params.ticket.status,
+          priority: params.ticket.priority,
+          requesterName: params.ticket.creator.fullName,
+          publicToken: params.ticket.publicToken,
+          assigneeName: params.assigneeName,
+        }),
+    },
+    {
+      label: "assigned:staff",
+      fn: () =>
+        sendTicketEventEmail({
+          event: "staff_assigned",
+          to: params.assigneeEmail,
+          toName: params.assigneeName,
+          ticketId: params.ticket.id,
+          subject: params.ticket.subject,
+          status: params.ticket.status,
+          priority: params.ticket.priority,
+          requesterName: params.ticket.creator.fullName,
+          requesterEmail: params.ticket.creator.email,
+          assigneeName: params.assigneeName,
+          adminView: true,
+        }),
+    },
   ]);
 }
 
@@ -144,19 +175,23 @@ export async function notifyTicketPriorityChange(params: {
   const escalated =
     params.ticket.priority === "urgent" || params.ticket.priority === "high";
 
-  const sends = [
-    sendTicketEventEmail({
-      event: "priority_changed",
-      to: customerEmail(params.ticket),
-      toName: params.ticket.creator.fullName,
-      ticketId: params.ticket.id,
-      subject: params.ticket.subject,
-      status: params.ticket.status,
-      priority: params.ticket.priority,
-      requesterName: params.ticket.creator.fullName,
-      publicToken: params.ticket.publicToken,
-      previousPriority: params.previousPriority,
-    }),
+  const tasks: Array<{ label: string; fn: () => Promise<void> }> = [
+    {
+      label: "priority:customer",
+      fn: () =>
+        sendTicketEventEmail({
+          event: "priority_changed",
+          to: customerEmail(params.ticket),
+          toName: params.ticket.creator.fullName,
+          ticketId: params.ticket.id,
+          subject: params.ticket.subject,
+          status: params.ticket.status,
+          priority: params.ticket.priority,
+          requesterName: params.ticket.creator.fullName,
+          publicToken: params.ticket.publicToken,
+          previousPriority: params.previousPriority,
+        }),
+    },
   ];
 
   if (escalated) {
@@ -172,24 +207,26 @@ export async function notifyTicketPriorityChange(params: {
     }
 
     for (const to of staffEmails) {
-      sends.push(
-        sendTicketEventEmail({
-          event: "staff_priority",
-          to,
-          ticketId: params.ticket.id,
-          subject: params.ticket.subject,
-          status: params.ticket.status,
-          priority: params.ticket.priority,
-          requesterName: params.ticket.creator.fullName,
-          requesterEmail: params.ticket.creator.email,
-          previousPriority: params.previousPriority,
-          adminView: true,
-        })
-      );
+      tasks.push({
+        label: `priority:staff:${to}`,
+        fn: () =>
+          sendTicketEventEmail({
+            event: "staff_priority",
+            to,
+            ticketId: params.ticket.id,
+            subject: params.ticket.subject,
+            status: params.ticket.status,
+            priority: params.ticket.priority,
+            requesterName: params.ticket.creator.fullName,
+            requesterEmail: params.ticket.creator.email,
+            previousPriority: params.previousPriority,
+            adminView: true,
+          }),
+      });
     }
   }
 
-  await Promise.all(sends);
+  await dispatchEmails(tasks);
 }
 
 export async function notifyTicketReply(params: {
@@ -202,6 +239,7 @@ export async function notifyTicketReply(params: {
     assignee: { email: string; fullName: string } | null;
   };
   messageBody: string;
+  attachmentCount?: number;
   isStaffReply: boolean;
   isInternal: boolean;
   authorEmail: string;
@@ -209,18 +247,24 @@ export async function notifyTicketReply(params: {
   if (params.isInternal) return;
 
   const { sendTicketReplyEmail } = await import("@/lib/email");
+  const preview = formatMessagePreview(
+    params.messageBody,
+    params.attachmentCount ?? 0
+  );
   const recipientEmail = params.ticket.guestEmail ?? params.ticket.creator.email;
 
   if (params.isStaffReply) {
-    await sendTicketReplyEmail({
-      to: recipientEmail,
-      requesterName: params.ticket.creator.fullName,
-      ticketId: params.ticket.id,
-      subject: params.ticket.subject,
-      replyPreview: params.messageBody,
-      publicToken: params.ticket.publicToken,
-      isStaffReply: true,
-    });
+    await dispatchEmail("reply:customer", () =>
+      sendTicketReplyEmail({
+        to: recipientEmail,
+        requesterName: params.ticket.creator.fullName,
+        ticketId: params.ticket.id,
+        subject: params.ticket.subject,
+        replyPreview: preview,
+        publicToken: params.ticket.publicToken,
+        isStaffReply: true,
+      })
+    );
     return;
   }
 
@@ -237,17 +281,50 @@ export async function notifyTicketReply(params: {
 
   staffEmails.delete(params.authorEmail);
 
-  await Promise.all(
-    [...staffEmails].map((to) =>
-      sendTicketReplyEmail({
-        to,
-        requesterName: "Support team",
-        ticketId: params.ticket.id,
-        subject: params.ticket.subject,
-        replyPreview: params.messageBody,
-        publicToken: null,
-        isStaffReply: false,
-      })
-    )
+  await dispatchEmails(
+    [...staffEmails].map((to) => ({
+      label: `reply:staff:${to}`,
+      fn: () =>
+        sendTicketReplyEmail({
+          to,
+          requesterName: params.ticket.creator.fullName,
+          ticketId: params.ticket.id,
+          subject: params.ticket.subject,
+          replyPreview: preview,
+          isStaffReply: false,
+          adminView: true,
+        }),
+    }))
   );
 }
+
+/** Reply notification + status email when a message auto-changes ticket status. */
+export async function notifyAfterMessage(params: {
+  ticket: TicketNotifyShape;
+  previousStatus: TicketStatus;
+  messageBody: string;
+  attachmentCount?: number;
+  isStaffReply: boolean;
+  isInternal: boolean;
+  authorEmail: string;
+}) {
+  if (params.isInternal) return;
+
+  await notifyTicketReply({
+    ticket: params.ticket,
+    messageBody: params.messageBody,
+    attachmentCount: params.attachmentCount,
+    isStaffReply: params.isStaffReply,
+    isInternal: params.isInternal,
+    authorEmail: params.authorEmail,
+  });
+
+  if (params.ticket.status !== params.previousStatus) {
+    await notifyTicketStatusChange({
+      ticket: params.ticket,
+      previousStatus: params.previousStatus,
+    });
+  }
+}
+
+export { formatMessagePreview };

@@ -3,6 +3,7 @@ import { Courier_Prime } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { SupportWidget } from "@/components/widget/support-widget";
 
 const courier = Courier_Prime({
   weight: ["400", "700"],
@@ -33,7 +34,10 @@ export default function RootLayout({
       className={`${courier.variable} ${mottingham.variable} h-full`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        <AuthSessionProvider>
+          {children}
+          <SupportWidget />
+        </AuthSessionProvider>
       </body>
     </html>
   );

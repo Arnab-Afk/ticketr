@@ -56,7 +56,13 @@ async function main() {
   }
 
   const template = process.argv[2] ?? "ticket-created";
-  const to = process.argv[3] ?? "arnab.b@somaiya.edu";
+  const to = process.argv[3] ?? process.env.EMAIL_TEST_TO;
+
+  if (!to) {
+    console.error("Usage: npm run email:test -- [template] you@example.com");
+    console.error(`Templates: ${ALL_TEMPLATES.join(", ")}`);
+    process.exit(1);
+  }
 
   const demo = {
     ticketId: "test-receipt-demo-001",

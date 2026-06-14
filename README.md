@@ -40,7 +40,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-## Deploy to Azure
+## Deploy to Vercel
+
+See **[deploy/vercel.md](deploy/vercel.md)** for production setup on `ticketr.ideahackathon.com` (Azure Postgres, ZeptoMail, shared R2 with iDEA).
+
+## Deploy to Azure (containers)
 
 See **[deploy/azure.md](deploy/azure.md)** for Container Apps + PostgreSQL + ACR step-by-step instructions.
 
@@ -93,8 +97,14 @@ npm run email:previews
 Send a test email:
 
 ```bash
-npx tsx scripts/send-test-email.ts ticket-resolved you@example.com
+npm run email:test -- ticket-created you@example.com
+npm run email:test -- ticket-reply you@example.com
+npm run email:test -- ticket-waiting-on-user you@example.com
 ```
+
+Check email status: `GET /api/health` returns `"email": "configured"` or `"disabled"`.
+
+Email failures are logged but **do not block** ticket creation, replies, or status updates.
 
 ### Attachments (Cloudflare R2)
 

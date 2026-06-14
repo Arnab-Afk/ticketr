@@ -1,10 +1,9 @@
 import { prisma } from "@/lib/db";
 import { auth, isStaff } from "@/lib/auth";
 import { jsonError, jsonSuccess } from "@/lib/api-client";
-import { ticketDetailInclude } from "@/lib/tickets";
-import { notifyTicketReply } from "@/lib/ticket-notifications";
+import { notifyAfterMessage } from "@/lib/ticket-notifications";
 
-async function getTicketForMessage(id: string) {
+async function getTicketForNotify(id: string) {
   return prisma.ticket.findUnique({
     where: { id },
     include: {
@@ -34,6 +33,8 @@ export async function POST(
   if (!staff && ticket.createdById !== session.user.id) {
     return jsonError("Forbidden", 403);
   }
+
+  const previousStatus = ticket.status;
 
   try {
     const body = await request.json();
@@ -96,11 +97,13 @@ export async function POST(
       });
     });
 
-    const ticketWithRelations = await getTicketForMessage(id);
-    if (ticketWithRelations && !isInternal) {
-      await notifyTicketReply({
-        ticket: ticketWithRelations,
+    const ticketForNotify = await getTicketForNotify(id);
+    if (ticketForNotify && !isInternal) {
+      await notifyAfterMessage({
+        ticket: ticketForNotify,
+        previousStatus,
         messageBody,
+        attachmentCount: attachmentIds.length,
         isStaffReply: staff,
         isInternal,
         authorEmail: session.user.email!,
@@ -108,7 +111,8 @@ export async function POST(
     }
 
     return jsonSuccess(message, 201);
-  } catch {
+  } catch (error) {
+    console.error("[messages] failed:", error);
     return jsonError("Failed to send message", 500);
   }
 }

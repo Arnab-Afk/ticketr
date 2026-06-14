@@ -16,6 +16,11 @@ export function isR2Configured(): boolean {
   );
 }
 
+/** Prefix for attachment keys — defaults to ticketr/attachments (idea uses avatars/). */
+export function getR2AttachmentPrefix(): string {
+  return process.env.R2_KEY_PREFIX?.replace(/\/$/, "") ?? "ticketr/attachments";
+}
+
 export function getR2Client(): S3Client {
   const accountId = requireEnv("R2_ACCOUNT_ID");
   return new S3Client({

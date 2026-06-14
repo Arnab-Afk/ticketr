@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 import { generatePublicToken } from "@/lib/ticket-notifications";
 import {
   notifyStaffOfNewTicket,
+  notifyTicketCreated,
 } from "@/lib/ticket-notifications";
-import { sendTicketCreatedEmail } from "@/lib/email";
 
 export const ticketInclude = {
   category: true,
@@ -95,7 +95,7 @@ export async function createTicket(options: CreateTicketOptions) {
   const notifyEmail = options.guestEmail ?? creator.email;
 
   await Promise.all([
-    sendTicketCreatedEmail({
+    notifyTicketCreated({
       to: notifyEmail,
       requesterName: creator.fullName,
       ticketId: ticket.id,
