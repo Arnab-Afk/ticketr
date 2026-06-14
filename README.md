@@ -15,15 +15,34 @@ Modern, open-source support ticketing — self-hosted with a clean UI.
 
 ## Quick start
 
+### Docker (recommended)
+
 ```bash
-npm install
 cp .env.example .env
+docker compose up --build
+```
+
+Open [http://localhost:3000](http://localhost:3000). The database is seeded on first run.
+
+### Local development
+
+Requires PostgreSQL. Start only the database with Docker:
+
+```bash
+docker compose up postgres -d
+cp .env.example .env
+# Set DATABASE_URL=postgresql://ticketr:ticketr@localhost:5432/ticketr
+npm install
 npm run db:push
 npm run db:seed
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+## Deploy to Azure
+
+See **[deploy/azure.md](deploy/azure.md)** for Container Apps + PostgreSQL + ACR step-by-step instructions.
 
 ## Seed accounts
 

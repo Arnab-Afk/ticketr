@@ -7,12 +7,14 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "email:assets": "tsx scripts/generate-email-assets.ts",
+    "email:assets": "tsx scripts/generate-email-assets.ts && tsx scripts/generate-favicon.ts",
     "email:previews": "tsx scripts/generate-email-previews.ts"
   },
   "prisma": {

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MessageThread } from "@/components/tickets/message-thread";
 import { ReplyBox } from "@/components/tickets/reply-box";
-import { PriorityBadge, StatusBadge } from "@/components/tickets/ticket-badges";
+import { StatusHint } from "@/components/tickets/status-hint";
+import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
 import { AttachmentList } from "@/components/tickets/attachment-uploader";
 import { apiClient } from "@/lib/api-client";
 import type { Ticket } from "@/lib/types/ticket";
@@ -36,17 +37,23 @@ export default function PublicTicketPage() {
     _isInternal?: boolean,
     attachmentIds?: string[]
   ) => {
-    await apiClient.post(`/api/tickets/public/${params.token}/messages`, {
-      body,
-      attachmentIds,
-    });
+    const response = await apiClient.post(
+      `/api/tickets/public/${params.token}/messages`,
+      {
+        body,
+        attachmentIds,
+      }
+    );
+    if (!response.success) {
+      throw new Error(response.error ?? "Failed to send reply");
+    }
     await loadTicket();
   };
 
   if (loading) {
     return (
       <main className="mx-auto flex max-w-3xl items-center justify-center px-4 py-24">
-        <div className="size-12 animate-spin rounded-full border-4 border-[#167E6C] border-t-transparent" />
+        <div className="receipt-spinner size-12" />
       </main>
     );
   }
@@ -54,32 +61,32 @@ export default function PublicTicketPage() {
   if (error || !ticket) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <p className="text-red-600">{error || "Ticket not found"}</p>
+        <p className="text-destructive">{error || "Ticket not found"}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Check the link in your email — it may have expired or been mistyped.
+        </p>
       </main>
     );
   }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <StatusBadge status={ticket.status} />
-          <PriorityBadge priority={ticket.priority} />
-          <span className="text-sm text-gray-500">{ticket.category.name}</span>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">{ticket.subject}</h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Submitted {new Date(ticket.createdAt).toLocaleString()}
-        </p>
-        {ticket.attachments?.length ? (
-          <div className="mt-4">
-            <AttachmentList attachments={ticket.attachments} />
-          </div>
-        ) : null}
+      <div className="space-y-4">
+        <TicketDetailHeader ticket={ticket} />
+        <StatusHint status={ticket.status} />
       </div>
 
-      <div className="space-y-6">
-        <MessageThread messages={ticket.messages ?? []} currentUserId="" />
+      {ticket.attachments?.length ? (
+        <div className="mt-4">
+          <AttachmentList attachments={ticket.attachments} />
+        </div>
+      ) : null}
+
+      <div className="mt-6 space-y-6">
+        <section>
+          <h2 className="receipt-label mb-3 text-[10px]">Conversation</h2>
+          <MessageThread messages={ticket.messages ?? []} currentUserId="" />
+        </section>
 
         {ticket.status !== "closed" ? (
           <ReplyBox
@@ -89,7 +96,9 @@ export default function PublicTicketPage() {
             guestName={ticket.creator.fullName}
           />
         ) : (
-          <p className="text-sm text-gray-500">This ticket is closed.</p>
+          <p className="text-sm text-muted-foreground">
+            This ticket is closed. Submit a new request if you need more help.
+          </p>
         )}
       </div>
     </main>

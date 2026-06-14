@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TicketAttachment } from "@/lib/types/ticket";
 
@@ -103,22 +102,26 @@ export function AttachmentUploader({
           disabled={disabled || uploading}
           onClick={() => inputRef.current?.click()}
         >
-          <Paperclip className="size-4" />
           {uploading ? "Uploading..." : "Attach file"}
         </Button>
         {files.map((file) => (
           <span
             key={file.id}
-            className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+            className="inline-flex items-center gap-1 border border-dashed border-border bg-muted px-3 py-1 text-xs"
           >
             {file.fileName}
-            <button type="button" onClick={() => removeFile(file.id)}>
-              <X className="size-3" />
+            <button
+              type="button"
+              className="font-bold leading-none"
+              aria-label={`Remove ${file.fileName}`}
+              onClick={() => removeFile(file.id)}
+            >
+              ×
             </button>
           </span>
         ))}
       </div>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
@@ -138,9 +141,8 @@ export function AttachmentList({
           href={file.fileUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-[#167E6C] hover:bg-gray-100"
+          className="inline-flex items-center gap-1 border border-dashed border-border bg-muted px-3 py-1.5 text-xs text-primary hover:bg-accent"
         >
-          <Paperclip className="size-3" />
           {file.fileName}
         </a>
       ))}

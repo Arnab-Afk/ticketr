@@ -1,24 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { BrandLogo } from "@/components/receipt/brand-logo";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ReceiptDivider,
+  ReceiptMeta,
+  ReceiptPaper,
+} from "@/components/receipt/receipt-paper";
 import { apiClient } from "@/lib/api-client";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,22 +52,29 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/tickets");
-    router.refresh();
+    window.location.href = "/";
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fafbfc] px-4">
-      <Card className="w-full max-w-md rounded-2xl border-gray-100 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>Start submitting support tickets</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="receipt-page flex min-h-screen items-center justify-center px-4 py-8">
+      <ReceiptPaper className="w-full p-6 sm:p-8">
+        <ReceiptMeta left="REGISTER" right="TICKETR" />
+        <div className="my-4 flex justify-center">
+          <BrandLogo href="/" height={100} />
+        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Start submitting support tickets
+        </p>
+
+        <ReceiptDivider />
+
+        <div className="space-y-4">
           <OAuthButtons />
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full name</Label>
+              <Label htmlFor="fullName" className="receipt-label">
+                Full name
+              </Label>
               <Input
                 id="fullName"
                 value={fullName}
@@ -79,7 +83,9 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="receipt-label">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -89,7 +95,9 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="receipt-label">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -99,19 +107,19 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
-          <p className="mt-6 text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="font-medium text-[#167E6C] hover:underline">
+            <Link href="/login" className="font-bold text-primary hover:underline">
               Sign in
             </Link>
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </ReceiptPaper>
     </div>
   );
 }

@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque } from "next/font/google";
+import { Courier_Prime } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 
-const bricolage = Bricolage_Grotesque({
+const courier = Courier_Prime({
+  weight: ["400", "700"],
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
+const mottingham = localFont({
+  src: "../public/fonts/MottinghamScript.woff2",
+  variable: "--font-brand",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "ticketr — Modern open-source support tickets",
+  title: "ticketr — support tickets, receipt-style",
   description:
-    "A clean, self-hosted ticketing system for support teams and communities.",
+    "Self-hosted support ticketing with a retro receipt aesthetic.",
 };
 
 export default function RootLayout({
@@ -20,7 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${bricolage.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${courier.variable} ${mottingham.variable} h-full`}
+    >
       <body className="min-h-full flex flex-col font-sans">
         <AuthSessionProvider>{children}</AuthSessionProvider>
       </body>

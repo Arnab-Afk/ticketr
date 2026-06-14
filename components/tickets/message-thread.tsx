@@ -12,7 +12,7 @@ export function MessageThread({
 }) {
   if (messages.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+      <div className="receipt-panel border-dashed p-8 text-center text-sm text-muted-foreground">
         No messages yet.
       </div>
     );
@@ -28,32 +28,34 @@ export function MessageThread({
           <div
             key={message.id}
             className={cn(
-              "rounded-2xl border p-4",
+              "border border-dashed p-4",
               isInternal
-                ? "border-amber-200 bg-amber-50"
+                ? "border-amber-400 bg-amber-50"
                 : isOwn
-                  ? "border-[#167E6C]/20 bg-[#167E6C]/5"
-                  : "border-gray-100 bg-white"
+                  ? "border-primary/30 bg-primary/5 receipt-paper"
+                  : "receipt-panel"
             )}
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-bold">
                   {message.author.fullName}
                   {isInternal ? (
-                    <span className="ml-2 text-xs font-normal text-amber-700">
+                    <span className="receipt-label ml-2 text-[9px] font-normal text-amber-800">
                       Internal note
                     </span>
                   ) : null}
                 </p>
-                <p className="text-xs text-gray-500">{message.author.email}</p>
+                <p className="text-xs text-muted-foreground">
+                  {message.author.email}
+                </p>
               </div>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 {formatRelativeTime(message.createdAt)}
               </span>
             </div>
             {message.body !== "(attachment)" ? (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">
                 {message.body}
               </p>
             ) : null}

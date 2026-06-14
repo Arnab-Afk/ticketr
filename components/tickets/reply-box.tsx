@@ -39,12 +39,17 @@ export function ReplyBox({
   const [isInternal, setIsInternal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if ((!body.trim() && attachmentIds.length === 0) || loading) return;
 
     setLoading(true);
+    setFeedback(null);
     try {
       await onSubmit(
         body.trim(),
@@ -54,19 +59,19 @@ export function ReplyBox({
       setBody("");
       setIsInternal(false);
       setAttachmentIds([]);
+      setFeedback({ type: "success", message: "Reply sent." });
+    } catch {
+      setFeedback({ type: "error", message: "Failed to send reply." });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-    >
+    <form onSubmit={handleSubmit} className="receipt-panel space-y-3">
       {cannedResponses.length > 0 ? (
         <div className="space-y-2">
-          <Label className="text-xs text-gray-500">Canned response</Label>
+          <Label className="receipt-label text-[10px]">Canned response</Label>
           <Select
             onValueChange={(id) => {
               const picked = cannedResponses.find((c) => c.id === id);
@@ -95,10 +100,19 @@ export function ReplyBox({
           id="reply"
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+              e.preventDefault();
+              void handleSubmit();
+            }
+          }}
           placeholder={placeholder}
           rows={4}
-          className="resize-none"
+          className="resize-none bg-card"
         />
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          Ctrl+Enter to send
+        </p>
       </div>
 
       <AttachmentUploader
@@ -109,16 +123,28 @@ export function ReplyBox({
         disabled={loading}
       />
 
+      {feedback ? (
+        <p
+          className={
+            feedback.type === "success"
+              ? "text-sm text-primary"
+              : "text-sm text-destructive"
+          }
+        >
+          {feedback.message}
+        </p>
+      ) : null}
+
       <div className="flex items-center justify-between gap-3">
         {allowInternal ? (
-          <label className="flex items-center gap-2 text-sm text-gray-600">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input
               type="checkbox"
               checked={isInternal}
               onChange={(e) => setIsInternal(e.target.checked)}
-              className="rounded border-gray-300"
+              className="border-border"
             />
-            Internal note
+            Internal note (not visible to customer)
           </label>
         ) : (
           <span />

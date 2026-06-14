@@ -1,14 +1,9 @@
-import { AppNav } from "@/components/layout/app-nav";
+import { AppShell } from "@/components/layout/app-shell";
 
 export default function TicketsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-screen bg-[#fafbfc]">
-      <AppNav />
-      {children}
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

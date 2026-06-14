@@ -6,20 +6,26 @@ const statusConfig: Record<
   TicketStatus,
   { label: string; className: string }
 > = {
-  open: { label: "Open", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  open: {
+    label: "Open",
+    className: "bg-primary/10 text-primary border-primary/40",
+  },
   in_progress: {
     label: "In Progress",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-amber-50 text-amber-900 border-amber-300",
   },
   waiting_on_user: {
     label: "Waiting on User",
-    className: "bg-purple-50 text-purple-700 border-purple-200",
+    className: "bg-orange-50 text-orange-900 border-orange-300",
   },
   resolved: {
     label: "Resolved",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 text-emerald-900 border-emerald-300",
   },
-  closed: { label: "Closed", className: "bg-gray-100 text-gray-600 border-gray-200" },
+  closed: {
+    label: "Closed",
+    className: "bg-muted text-muted-foreground border-border",
+  },
 };
 
 export function StatusBadge({
@@ -31,7 +37,7 @@ export function StatusBadge({
 }) {
   const config = statusConfig[status];
   return (
-    <Badge variant="outline" className={cn(config.className, className)}>
+    <Badge variant="outline" className={cn("rounded-none text-[10px] font-bold uppercase tracking-wide", config.className, className)}>
       {config.label}
     </Badge>
   );
@@ -41,10 +47,10 @@ const priorityConfig: Record<
   TicketPriority,
   { label: string; className: string }
 > = {
-  low: { label: "Low", className: "text-gray-500" },
-  normal: { label: "Normal", className: "text-gray-700" },
-  high: { label: "High", className: "text-orange-600" },
-  urgent: { label: "Urgent", className: "text-red-600 font-semibold" },
+  low: { label: "Low", className: "text-muted-foreground" },
+  normal: { label: "Normal", className: "text-foreground" },
+  high: { label: "High", className: "text-orange-700 font-bold" },
+  urgent: { label: "Urgent", className: "text-primary font-bold uppercase" },
 };
 
 export function PriorityBadge({
@@ -56,7 +62,7 @@ export function PriorityBadge({
 }) {
   const config = priorityConfig[priority];
   return (
-    <span className={cn("text-xs font-medium", config.className, className)}>
+    <span className={cn("text-[10px] font-medium tracking-wide uppercase", config.className, className)}>
       {config.label}
     </span>
   );

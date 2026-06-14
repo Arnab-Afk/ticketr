@@ -1,10 +1,12 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { authConfig } from "@/lib/auth.config";
 
-export default auth((req: NextRequest & { auth: { user?: { role?: string } } | null }) => {
+const { auth } = NextAuth(authConfig);
+
+export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth?.user;
+  const isLoggedIn = !!req.auth?.user?.id;
   const role = req.auth?.user?.role;
 
   if (pathname.startsWith("/admin")) {

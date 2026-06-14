@@ -5,8 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { MessageThread } from "@/components/tickets/message-thread";
 import { StaffReplyBox } from "@/components/tickets/staff-reply-box";
-import { PriorityBadge, StatusBadge } from "@/components/tickets/ticket-badges";
+import { StatusHint } from "@/components/tickets/status-hint";
+import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
+import { priorityDescriptions } from "@/lib/ticket-format";
 import { Button } from "@/components/ui/button";
+import { ReceiptPaper } from "@/components/receipt/receipt-paper";
 import {
   Select,
   SelectContent,
@@ -63,18 +66,21 @@ export default function AdminTicketDetailPage() {
     isInternal?: boolean,
     attachmentIds?: string[]
   ) => {
-    await apiClient.post(`/api/tickets/${params.id}/messages`, {
+    const response = await apiClient.post(`/api/tickets/${params.id}/messages`, {
       body,
       isInternal,
       attachmentIds,
     });
+    if (!response.success) {
+      throw new Error(response.error ?? "Failed to send reply");
+    }
     await loadTicket();
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="size-12 animate-spin rounded-full border-4 border-[#167E6C] border-t-transparent" />
+        <div className="receipt-spinner size-12" />
       </div>
     );
   }
@@ -82,8 +88,11 @@ export default function AdminTicketDetailPage() {
   if (error || !ticket) {
     return (
       <div className="px-4 py-8">
-        <p className="text-red-600">{error || "Ticket not found"}</p>
-        <Link href="/admin" className="mt-4 inline-block text-[#167E6C] hover:underline">
+        <p className="text-destructive">{error || "Ticket not found"}</p>
+        <Link
+          href="/admin"
+          className="mt-4 inline-block text-primary hover:underline"
+        >
           Back to queue
         </Link>
       </div>
@@ -92,51 +101,47 @@ export default function AdminTicketDetailPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-900">
+      <Link
+        href="/admin"
+        className="text-sm text-muted-foreground hover:text-primary"
+      >
         ← Back to queue
       </Link>
 
       <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="space-y-6">
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <StatusBadge status={ticket.status} />
-              <PriorityBadge priority={ticket.priority} />
-              <span className="text-sm text-gray-500">{ticket.category.name}</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">{ticket.subject}</h1>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
-              {ticket.description}
-            </p>
-          </div>
+          <TicketDetailHeader ticket={ticket} />
+          <StatusHint status={ticket.status} />
 
-          <MessageThread
-            messages={ticket.messages ?? []}
-            currentUserId=""
-          />
+          <section>
+            <h2 className="receipt-label mb-3 text-[10px]">Conversation</h2>
+            <MessageThread messages={ticket.messages ?? []} currentUserId="" />
+          </section>
 
           <StaffReplyBox onSubmit={handleReply} />
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <ReceiptPaper width="full" className="p-5">
+            <h2 className="receipt-label mb-4 text-[10px] text-muted-foreground">
               Requester
             </h2>
-            <p className="font-medium text-gray-900">{ticket.creator.fullName}</p>
-            <p className="text-sm text-gray-500">{ticket.creator.email}</p>
-          </div>
+            <p className="font-bold">{ticket.creator.fullName}</p>
+            <p className="text-sm text-muted-foreground">
+              {ticket.creator.email}
+            </p>
+          </ReceiptPaper>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-4">
+          <ReceiptPaper width="full" className="space-y-4 p-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Status</label>
+              <label className="receipt-label text-[10px]">Status</label>
               <Select
                 value={ticket.status}
                 onValueChange={(value) =>
                   updateTicket({ status: value as TicketStatus })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-card">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -150,14 +155,14 @@ export default function AdminTicketDetailPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Priority</label>
+              <label className="receipt-label text-[10px]">Priority</label>
               <Select
                 value={ticket.priority}
                 onValueChange={(value) =>
                   updateTicket({ priority: value as TicketPriority })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-card">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -167,10 +172,13 @@ export default function AdminTicketDetailPage() {
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                {priorityDescriptions[ticket.priority]}
+              </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Assignee</label>
+              <label className="receipt-label text-[10px]">Assignee</label>
               <Select
                 value={ticket.assigneeId ?? "unassigned"}
                 onValueChange={(value) =>
@@ -179,7 +187,7 @@ export default function AdminTicketDetailPage() {
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
@@ -194,13 +202,13 @@ export default function AdminTicketDetailPage() {
             </div>
 
             {ticket.assignee ? (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Assigned to {ticket.assignee.fullName}
               </p>
             ) : null}
-          </div>
+          </ReceiptPaper>
 
-          <Button variant="outline" className="w-full" asChild>
+          <Button variant="outline" className="w-full bg-card" asChild>
             <Link href={`/tickets/${ticket.id}`}>View as user</Link>
           </Button>
         </aside>
