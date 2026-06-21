@@ -8,6 +8,7 @@ import { MessageThread } from "@/components/tickets/message-thread";
 import { ReplyBox } from "@/components/tickets/reply-box";
 import { StatusHint } from "@/components/tickets/status-hint";
 import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
+import { LoadingOverlay } from "@/components/ui/loading-block";
 import { apiClient } from "@/lib/api-client";
 import type { Ticket } from "@/lib/types/ticket";
 
@@ -16,9 +17,11 @@ function TicketDetailContent() {
   const { data: session } = useSession();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const loadTicket = useCallback(async () => {
+  const loadTicket = useCallback(async (showOverlay = false) => {
+    if (showOverlay) setRefreshing(true);
     const response = await apiClient.get<Ticket>(`/api/tickets/${params.id}`);
     if (response.success && response.data) {
       setTicket(response.data);
@@ -26,6 +29,7 @@ function TicketDetailContent() {
       setError(response.error ?? "Failed to load ticket");
     }
     setLoading(false);
+    setRefreshing(false);
   }, [params.id]);
 
   useEffect(() => {
@@ -44,7 +48,7 @@ function TicketDetailContent() {
     if (!response.success) {
       throw new Error(response.error ?? "Failed to send reply");
     }
-    await loadTicket();
+    await loadTicket(true);
   };
 
   if (loading) {
@@ -70,7 +74,8 @@ function TicketDetailContent() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="relative mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      {refreshing ? <LoadingOverlay message="Updating conversation..." /> : null}
       <Link
         href="/tickets"
         className="text-sm text-muted-foreground hover:text-primary"

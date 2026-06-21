@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { TicketCard } from "@/components/tickets/ticket-card";
+import { LoadingBlock } from "@/components/ui/loading-block";
 import {
   TicketFilters,
   buildTicketQuery,
@@ -83,9 +84,7 @@ export default function TicketsPage() {
       ) : null}
 
       {loading ? (
-        <div className="flex justify-center py-24">
-          <div className="receipt-spinner size-10" />
-        </div>
+        <LoadingBlock message="Loading your tickets..." />
       ) : tickets.length === 0 ? (
         <div className="receipt-panel border-dashed p-12 text-center">
           <p className="font-bold text-primary">

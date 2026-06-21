@@ -10,6 +10,7 @@ import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
 import { priorityDescriptions } from "@/lib/ticket-format";
 import { Button } from "@/components/ui/button";
 import { ReceiptPaper } from "@/components/receipt/receipt-paper";
+import { LoadingOverlay } from "@/components/ui/loading-block";
 import {
   Select,
   SelectContent,
@@ -32,9 +33,12 @@ export default function AdminTicketDetailPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [agents, setAgents] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
 
-  const loadTicket = useCallback(async () => {
+  const loadTicket = useCallback(async (showOverlay = false) => {
+    if (showOverlay) setRefreshing(true);
     const response = await apiClient.get<Ticket>(`/api/tickets/${params.id}`);
     if (response.success && response.data) {
       setTicket(response.data);
@@ -42,6 +46,7 @@ export default function AdminTicketDetailPage() {
       setError(response.error ?? "Failed to load ticket");
     }
     setLoading(false);
+    setRefreshing(false);
   }, [params.id]);
 
   useEffect(() => {
@@ -54,11 +59,13 @@ export default function AdminTicketDetailPage() {
   }, [loadTicket]);
 
   const updateTicket = async (data: Record<string, unknown>) => {
+    setUpdating(true);
     const response = await apiClient.patch<Ticket>(`/api/tickets/${params.id}`, data);
     if (response.success && response.data) {
       setTicket((prev) => (prev ? { ...prev, ...response.data } : prev));
-      await loadTicket();
+      await loadTicket(true);
     }
+    setUpdating(false);
   };
 
   const handleReply = async (
@@ -74,7 +81,7 @@ export default function AdminTicketDetailPage() {
     if (!response.success) {
       throw new Error(response.error ?? "Failed to send reply");
     }
-    await loadTicket();
+    await loadTicket(true);
   };
 
   if (loading) {
@@ -100,7 +107,12 @@ export default function AdminTicketDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      {refreshing || updating ? (
+        <LoadingOverlay
+          message={updating ? "Saving changes..." : "Refreshing ticket..."}
+        />
+      ) : null}
       <Link
         href="/admin"
         className="text-sm text-muted-foreground hover:text-primary"
@@ -137,6 +149,7 @@ export default function AdminTicketDetailPage() {
               <label className="receipt-label text-[10px]">Status</label>
               <Select
                 value={ticket.status}
+                disabled={updating}
                 onValueChange={(value) =>
                   updateTicket({ status: value as TicketStatus })
                 }
@@ -158,6 +171,7 @@ export default function AdminTicketDetailPage() {
               <label className="receipt-label text-[10px]">Priority</label>
               <Select
                 value={ticket.priority}
+                disabled={updating}
                 onValueChange={(value) =>
                   updateTicket({ priority: value as TicketPriority })
                 }
@@ -181,6 +195,7 @@ export default function AdminTicketDetailPage() {
               <label className="receipt-label text-[10px]">Assignee</label>
               <Select
                 value={ticket.assigneeId ?? "unassigned"}
+                disabled={updating}
                 onValueChange={(value) =>
                   updateTicket({
                     assigneeId: value === "unassigned" ? null : value,

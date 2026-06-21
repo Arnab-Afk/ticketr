@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AttachmentUploader } from "@/components/tickets/attachment-uploader";
+import { LoadingBlock, LoadingOverlay } from "@/components/ui/loading-block";
 import { apiClient } from "@/lib/api-client";
 import { priorityDescriptions } from "@/lib/ticket-format";
 import type { TicketCategory, TicketPriority } from "@/lib/types/ticket";
@@ -36,15 +37,20 @@ export function GuestTicketForm({
   const [categoryId, setCategoryId] = useState("");
   const [priority, setPriority] = useState<TicketPriority>("normal");
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setCategoriesLoading(true);
     apiClient.get<TicketCategory[]>("/api/categories").then((res) => {
       if (res.success && res.data) {
         setCategories(res.data);
         if (res.data[0]) setCategoryId(res.data[0].id);
+      } else {
+        setError(res.error ?? "Could not load categories");
       }
+      setCategoriesLoading(false);
     });
   }, []);
 
@@ -78,8 +84,13 @@ export function GuestTicketForm({
 
   const selectedCategory = categories.find((c) => c.id === categoryId);
 
+  if (categoriesLoading) {
+    return <LoadingBlock message="Loading support categories..." />;
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="relative space-y-4">
+      {loading ? <LoadingOverlay message="Submitting your request..." /> : null}
       <div className={compact ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2"}>
         <div className="space-y-2">
           <Label htmlFor={`${idPrefix}-name`} className="receipt-label">
@@ -189,7 +200,7 @@ export function GuestTicketForm({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <div className="flex flex-wrap gap-2 pt-1">
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || !categoryId}>
           {loading ? "Submitting..." : "Submit request"}
         </Button>
         {onCancel ? (

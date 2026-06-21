@@ -24,6 +24,7 @@ import {
   buildTicketQuery,
 } from "@/components/tickets/ticket-filters";
 import { formatTicketNumber } from "@/lib/ticket-format";
+import { LoadingBlock } from "@/components/ui/loading-block";
 import { apiClient } from "@/lib/api-client";
 import type { Ticket } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export default function AdminQueuePage() {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [stats, setStats] = useState({ open: 0, inProgress: 0, waiting: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const updateFilters = useCallback(
@@ -57,6 +59,7 @@ export default function AdminQueuePage() {
   );
 
   useEffect(() => {
+    setStatsLoading(true);
     apiClient.get<Ticket[]>("/api/tickets?limit=100").then((response) => {
       if (response.success && response.data) {
         const all = response.data;
@@ -66,6 +69,7 @@ export default function AdminQueuePage() {
           waiting: all.filter((t) => t.status === "waiting_on_user").length,
         });
       }
+      setStatsLoading(false);
     });
   }, []);
 
@@ -105,23 +109,27 @@ export default function AdminQueuePage() {
       </div>
 
       <ReceiptStatStrip className="mb-6 max-w-lg">
-        {statFilters.map((stat) => (
-          <button
-            key={stat.status}
-            type="button"
-            onClick={() =>
-              updateFilters({
-                status: status === stat.status ? "all" : stat.status,
-              })
-            }
-            className={cn(
-              "receipt-stat w-full text-left transition-opacity hover:opacity-80",
-              status === stat.status && "bg-primary/5"
-            )}
-          >
-            <ReceiptStat label={stat.label} value={stat.value} />
-          </button>
-        ))}
+        {statsLoading ? (
+          <LoadingBlock message="Loading queue stats..." size="sm" className="py-6" />
+        ) : (
+          statFilters.map((stat) => (
+            <button
+              key={stat.status}
+              type="button"
+              onClick={() =>
+                updateFilters({
+                  status: status === stat.status ? "all" : stat.status,
+                })
+              }
+              className={cn(
+                "receipt-stat w-full text-left transition-opacity hover:opacity-80",
+                status === stat.status && "bg-primary/5"
+              )}
+            >
+              <ReceiptStat label={stat.label} value={stat.value} />
+            </button>
+          ))
+        )}
       </ReceiptStatStrip>
 
       <div className="mb-4">
@@ -136,9 +144,7 @@ export default function AdminQueuePage() {
 
       <ReceiptPaper width="full" className="overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="receipt-spinner size-10" />
-          </div>
+          <LoadingBlock message="Loading tickets..." />
         ) : tickets.length === 0 ? (
           <div className="py-16 text-center">
             <p className="font-bold text-primary">No tickets found</p>

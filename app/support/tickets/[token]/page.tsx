@@ -7,6 +7,7 @@ import { ReplyBox } from "@/components/tickets/reply-box";
 import { StatusHint } from "@/components/tickets/status-hint";
 import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
 import { AttachmentList } from "@/components/tickets/attachment-uploader";
+import { LoadingOverlay } from "@/components/ui/loading-block";
 import { apiClient } from "@/lib/api-client";
 import type { Ticket } from "@/lib/types/ticket";
 
@@ -14,9 +15,11 @@ export default function PublicTicketPage() {
   const params = useParams<{ token: string }>();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const loadTicket = useCallback(async () => {
+  const loadTicket = useCallback(async (showOverlay = false) => {
+    if (showOverlay) setRefreshing(true);
     const response = await apiClient.get<Ticket>(
       `/api/tickets/public?token=${params.token}`
     );
@@ -26,6 +29,7 @@ export default function PublicTicketPage() {
       setError(response.error ?? "Ticket not found");
     }
     setLoading(false);
+    setRefreshing(false);
   }, [params.token]);
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export default function PublicTicketPage() {
     if (!response.success) {
       throw new Error(response.error ?? "Failed to send reply");
     }
-    await loadTicket();
+    await loadTicket(true);
   };
 
   if (loading) {
@@ -70,7 +74,8 @@ export default function PublicTicketPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <main className="relative mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      {refreshing ? <LoadingOverlay message="Updating conversation..." /> : null}
       <div className="space-y-4">
         <TicketDetailHeader ticket={ticket} />
         <StatusHint status={ticket.status} />

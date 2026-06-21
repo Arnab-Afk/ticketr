@@ -153,7 +153,14 @@ export function ReplyBox({
           type="submit"
           disabled={loading || (!body.trim() && attachmentIds.length === 0)}
         >
-          {loading ? "Sending..." : "Send reply"}
+          {loading ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="receipt-spinner size-4" />
+              Sending...
+            </span>
+          ) : (
+            "Send reply"
+          )}
         </Button>
       </div>
     </form>

@@ -27,6 +27,11 @@ const ticketLinks: NavLink[] = [
     label: "New Ticket",
     isActive: (p) => p === "/tickets/new",
   },
+  {
+    href: "/settings",
+    label: "Change password",
+    isActive: (p) => p.startsWith("/settings"),
+  },
 ];
 
 const staffLinks: NavLink[] = [

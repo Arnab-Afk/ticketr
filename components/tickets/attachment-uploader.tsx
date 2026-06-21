@@ -102,7 +102,14 @@ export function AttachmentUploader({
           disabled={disabled || uploading}
           onClick={() => inputRef.current?.click()}
         >
-          {uploading ? "Uploading..." : "Attach file"}
+          {uploading ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="receipt-spinner size-3.5" />
+              Uploading...
+            </span>
+          ) : (
+            "Attach file"
+          )}
         </Button>
         {files.map((file) => (
           <span

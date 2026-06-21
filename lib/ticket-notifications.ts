@@ -2,6 +2,7 @@ import type { TicketPriority, TicketStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { supportEmailAddress } from "@/lib/email-config";
 import { statusToEvent } from "@/lib/email-receipt";
 import {
   dispatchEmail,
@@ -68,12 +69,34 @@ export async function notifyStaffOfNewTicket(ticket: {
     select: { email: true },
   });
 
+  const recipients = new Set<string>();
+  for (const member of staff) {
+    recipients.add(member.email.toLowerCase().trim());
+  }
+
+  recipients.add(supportEmailAddress().toLowerCase().trim());
+
+  const extraRecipients =
+    process.env.STAFF_NOTIFY_EMAILS?.split(",")
+      .map((email) => email.toLowerCase().trim())
+      .filter(Boolean) ?? [];
+  for (const email of extraRecipients) {
+    recipients.add(email);
+  }
+
+  if (recipients.size === 0) {
+    console.warn(
+      "[email] staff-new-ticket: no recipients — add admin/agent users or STAFF_NOTIFY_EMAILS"
+    );
+    return;
+  }
+
   await dispatchEmails(
-    staff.map((member) => ({
-      label: `staff-new-ticket:${member.email}`,
+    [...recipients].map((email) => ({
+      label: `staff-new-ticket:${email}`,
       fn: () =>
         sendStaffNewTicketEmail({
-          to: member.email,
+          to: email,
           subject: ticket.subject,
           requesterName: ticket.creator.fullName,
           requesterEmail: ticket.creator.email,
