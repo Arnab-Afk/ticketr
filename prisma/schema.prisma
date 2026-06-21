@@ -29,14 +29,16 @@ enum TicketPriority {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String?
-  fullName     String
-  role         UserRole  @default(user)
-  avatarUrl    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String?
+  fullName             String
+  role                 UserRole  @default(user)
+  avatarUrl            String?
+  accessToken          String?   @unique
+  accessTokenExpiresAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   accounts        Account[]
   ticketsCreated  Ticket[]          @relation("TicketCreator")

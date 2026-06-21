@@ -67,6 +67,7 @@ async function main() {
   const demo = {
     ticketId: "test-receipt-demo-001",
     requesterName: "Arnab Bhowmik",
+    requesterId: "demo-user-id",
     requesterEmail: "arnab.b@somaiya.edu",
     subject: "Test support request — email preview",
     publicToken: "demo-public-token-preview",
@@ -78,6 +79,7 @@ async function main() {
     await sendTicketCreatedEmail({
       to,
       requesterName: demo.requesterName,
+      requesterId: demo.requesterId,
       ticketId: demo.ticketId,
       subject: demo.subject,
       publicToken: demo.publicToken,
@@ -86,6 +88,7 @@ async function main() {
     await sendTicketReplyEmail({
       to,
       requesterName: demo.requesterName,
+      requesterId: demo.requesterId,
       ticketId: demo.ticketId,
       subject: demo.subject,
       replyPreview: demo.replyPreview,
@@ -130,6 +133,7 @@ async function main() {
       priority: event === "staff_priority" || event === "priority_changed" ? "urgent" : "normal",
       requesterName: demo.requesterName,
       requesterEmail: demo.requesterEmail,
+      requesterId: demo.requesterId,
       publicToken: demo.publicToken,
       assigneeName: demo.assigneeName,
       previousPriority: "normal",

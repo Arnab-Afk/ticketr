@@ -10,6 +10,7 @@ import { StatusHint } from "@/components/tickets/status-hint";
 import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
 import { LoadingOverlay } from "@/components/ui/loading-block";
 import { apiClient } from "@/lib/api-client";
+import { isTicketClosed } from "@/lib/ticket-format";
 import type { Ticket } from "@/lib/types/ticket";
 
 function TicketDetailContent() {
@@ -96,12 +97,12 @@ function TicketDetailContent() {
             currentUserId={session?.user?.id ?? ""}
           />
         </section>
-        {ticket.status !== "closed" ? (
-          <ReplyBox onSubmit={handleReply} />
-        ) : (
+        {isTicketClosed(ticket.status) ? (
           <p className="text-sm text-muted-foreground">
             This ticket is closed. Open a new ticket if you need more help.
           </p>
+        ) : (
+          <ReplyBox onSubmit={handleReply} />
         )}
       </div>
     </main>

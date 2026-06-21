@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { authConfig } from "@/lib/auth.config";
 import type { UserRole } from "@/lib/types/user";
+import { getUserByAccessToken } from "@/lib/user-access-token";
 
 const providers: Provider[] = [
   Credentials({
@@ -14,8 +15,22 @@ const providers: Provider[] = [
     credentials: {
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
+      accessToken: { label: "Access Token", type: "text" },
     },
     async authorize(credentials) {
+      if (credentials?.accessToken) {
+        const user = await getUserByAccessToken(String(credentials.accessToken));
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.fullName,
+          role: user.role as UserRole,
+          image: user.avatarUrl,
+        };
+      }
+
       if (!credentials?.email || !credentials?.password) {
         return null;
       }

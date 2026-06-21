@@ -8,9 +8,13 @@ export const statusDescriptions: Record<TicketStatus, string> = {
   open: "Your ticket is in the queue. We'll pick it up soon.",
   in_progress: "A team member is actively working on this.",
   waiting_on_user: "We need your reply to continue — check the thread below.",
-  resolved: "This looks solved. Reply to reopen if you still need help.",
+  resolved: "This ticket is closed. No further replies can be added.",
   closed: "This ticket is closed. No further replies can be added.",
 };
+
+export function isTicketClosed(status: TicketStatus): boolean {
+  return status === "closed" || status === "resolved";
+}
 
 export const priorityDescriptions: Record<TicketPriority, string> = {
   low: "General question — no rush",

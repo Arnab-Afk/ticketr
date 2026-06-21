@@ -10,6 +10,7 @@ import {
   isR2Configured,
   uploadToR2,
 } from "@/lib/r2";
+import { isTicketClosed } from "@/lib/ticket-format";
 
 export async function POST(request: NextRequest) {
   if (!isR2Configured()) {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       where: { publicToken },
       select: { createdById: true, status: true },
     });
-    if (!ticket || ticket.status === "closed") {
+    if (!ticket || isTicketClosed(ticket.status)) {
       return jsonError("Invalid or closed ticket", 403);
     }
     uploaderId = ticket.createdById;

@@ -6,6 +6,7 @@ import {
   ticketDetailInclude,
 } from "@/lib/tickets";
 import { findOrCreateGuestUser } from "@/lib/ticket-notifications";
+import { buildGuestTicketUrl } from "@/lib/user-access-token";
 
 export async function POST(request: Request) {
   try {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     return jsonSuccess(
       {
         ticket,
-        publicUrl: `/support/tickets/${publicToken}`,
+        publicUrl: await buildGuestTicketUrl(publicToken, user.id),
       },
       201
     );

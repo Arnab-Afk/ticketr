@@ -6,6 +6,7 @@ import {
   buildReceiptContent,
   type TicketEmailEvent,
 } from "@/lib/email-receipt";
+import { ensureUserAccessToken } from "@/lib/user-access-token";
 
 const appName = process.env.TICKETR_NAME ?? "ticketr";
 
@@ -64,8 +65,16 @@ async function sendEmail(params: {
   }
 }
 
-function ticketUrl(ticketId: string, publicToken?: string | null) {
+async function customerTicketUrl(
+  ticketId: string,
+  publicToken?: string | null,
+  requesterId?: string
+) {
   const appUrl = emailAppUrl();
+  if (publicToken && requesterId) {
+    const accessToken = await ensureUserAccessToken(requesterId);
+    return `${appUrl}/support/tickets/${publicToken}?access=${accessToken}`;
+  }
   if (publicToken) {
     return `${appUrl}/support/tickets/${publicToken}`;
   }
@@ -128,12 +137,17 @@ function renderEventEmail(
 export async function sendTicketCreatedEmail(params: {
   to: string;
   requesterName: string;
+  requesterId: string;
   ticketId: string;
   subject: string;
   publicToken?: string | null;
 }) {
   const { renderEmailTemplate } = await import("@/lib/email-templates");
-  const url = ticketUrl(params.ticketId, params.publicToken);
+  const url = await customerTicketUrl(
+    params.ticketId,
+    params.publicToken,
+    params.requesterId
+  );
   const number = formatTicketNumber(params.ticketId);
 
   await sendEmail({
@@ -155,6 +169,7 @@ export async function sendTicketCreatedEmail(params: {
 export async function sendTicketReplyEmail(params: {
   to: string;
   requesterName: string;
+  requesterId?: string;
   ticketId: string;
   subject: string;
   replyPreview: string;
@@ -165,7 +180,11 @@ export async function sendTicketReplyEmail(params: {
   const { renderEmailTemplate, truncatePreview } = await import("@/lib/email-templates");
   const url = params.adminView
     ? adminTicketUrl(params.ticketId)
-    : ticketUrl(params.ticketId, params.publicToken);
+    : await customerTicketUrl(
+        params.ticketId,
+        params.publicToken,
+        params.requesterId
+      );
   const heading = params.isStaffReply
     ? "NEW REPLY FROM SUPPORT"
     : "NEW CUSTOMER REPLY";
@@ -224,6 +243,7 @@ export async function sendTicketEventEmail(params: {
   priority: TicketPriority;
   requesterName: string;
   requesterEmail?: string;
+  requesterId?: string;
   publicToken?: string | null;
   assigneeName?: string;
   previousPriority?: TicketPriority;
@@ -233,7 +253,11 @@ export async function sendTicketEventEmail(params: {
   const number = formatTicketNumber(params.ticketId);
   const url = params.adminView
     ? adminTicketUrl(params.ticketId)
-    : ticketUrl(params.ticketId, params.publicToken);
+    : await customerTicketUrl(
+        params.ticketId,
+        params.publicToken,
+        params.requesterId
+      );
 
   const { subject, html } = renderEventEmail(params.event, {
     ticketId: params.ticketId,

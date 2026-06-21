@@ -2,12 +2,13 @@ import { prisma } from "@/lib/db";
 import { auth, isStaff } from "@/lib/auth";
 import { jsonError, jsonSuccess } from "@/lib/api-client";
 import { notifyAfterMessage } from "@/lib/ticket-notifications";
+import { isTicketClosed } from "@/lib/ticket-format";
 
 async function getTicketForNotify(id: string) {
   return prisma.ticket.findUnique({
     where: { id },
     include: {
-      creator: { select: { fullName: true, email: true } },
+      creator: { select: { id: true, fullName: true, email: true } },
       assignee: { select: { fullName: true, email: true } },
     },
   });
@@ -32,6 +33,10 @@ export async function POST(
 
   if (!staff && ticket.createdById !== session.user.id) {
     return jsonError("Forbidden", 403);
+  }
+
+  if (!staff && isTicketClosed(ticket.status)) {
+    return jsonError("This ticket is closed", 400);
   }
 
   const previousStatus = ticket.status;

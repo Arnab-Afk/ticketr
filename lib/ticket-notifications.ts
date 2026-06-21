@@ -49,7 +49,7 @@ type TicketNotifyShape = {
   priority: TicketPriority;
   publicToken: string | null;
   guestEmail: string | null;
-  creator: { fullName: string; email: string };
+  creator: { id: string; fullName: string; email: string };
   assignee: { fullName: string; email: string } | null;
 };
 
@@ -109,6 +109,7 @@ export async function notifyStaffOfNewTicket(ticket: {
 export async function notifyTicketCreated(params: {
   to: string;
   requesterName: string;
+  requesterId: string;
   ticketId: string;
   subject: string;
   publicToken?: string | null;
@@ -139,6 +140,7 @@ export async function notifyTicketStatusChange(params: {
       status: params.ticket.status,
       priority: params.ticket.priority,
       requesterName: params.ticket.creator.fullName,
+      requesterId: params.ticket.creator.id,
       publicToken: params.ticket.publicToken,
       assigneeName: params.ticket.assignee?.fullName,
       previousStatus: params.previousStatus,
@@ -166,6 +168,7 @@ export async function notifyTicketAssigned(params: {
           status: params.ticket.status,
           priority: params.ticket.priority,
           requesterName: params.ticket.creator.fullName,
+          requesterId: params.ticket.creator.id,
           publicToken: params.ticket.publicToken,
           assigneeName: params.assigneeName,
         }),
@@ -211,6 +214,7 @@ export async function notifyTicketPriorityChange(params: {
           status: params.ticket.status,
           priority: params.ticket.priority,
           requesterName: params.ticket.creator.fullName,
+          requesterId: params.ticket.creator.id,
           publicToken: params.ticket.publicToken,
           previousPriority: params.previousPriority,
         }),
@@ -258,7 +262,7 @@ export async function notifyTicketReply(params: {
     subject: string;
     publicToken: string | null;
     guestEmail: string | null;
-    creator: { fullName: string; email: string };
+    creator: { id: string; fullName: string; email: string };
     assignee: { email: string; fullName: string } | null;
   };
   messageBody: string;
@@ -281,6 +285,7 @@ export async function notifyTicketReply(params: {
       sendTicketReplyEmail({
         to: recipientEmail,
         requesterName: params.ticket.creator.fullName,
+        requesterId: params.ticket.creator.id,
         ticketId: params.ticket.id,
         subject: params.ticket.subject,
         replyPreview: preview,

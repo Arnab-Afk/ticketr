@@ -98,6 +98,7 @@ export async function createTicket(options: CreateTicketOptions) {
     notifyTicketCreated({
       to: notifyEmail,
       requesterName: creator.fullName,
+      requesterId: creator.id,
       ticketId: ticket.id,
       subject: ticket.subject,
       publicToken: ticket.publicToken,

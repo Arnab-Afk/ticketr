@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { jsonError, jsonSuccess } from "@/lib/api-client";
 import { notifyAfterMessage } from "@/lib/ticket-notifications";
+import { isTicketClosed } from "@/lib/ticket-format";
 
 export async function POST(
   request: Request,
@@ -20,7 +21,7 @@ export async function POST(
     return jsonError("Ticket not found", 404);
   }
 
-  if (ticket.status === "closed") {
+  if (isTicketClosed(ticket.status)) {
     return jsonError("This ticket is closed", 400);
   }
 
@@ -73,7 +74,7 @@ export async function POST(
     const updatedTicket = await prisma.ticket.findUnique({
       where: { id: ticket.id },
       include: {
-        creator: { select: { fullName: true, email: true } },
+        creator: { select: { id: true, fullName: true, email: true } },
         assignee: { select: { fullName: true, email: true } },
       },
     });
