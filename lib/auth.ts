@@ -158,6 +158,14 @@ export async function requireStaff() {
   return session;
 }
 
+export async function requireAdmin() {
+  const session = await requireSession();
+  if (session.user.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+  return session;
+}
+
 export function isStaff(role: string) {
   return role === "admin" || role === "agent";
 }

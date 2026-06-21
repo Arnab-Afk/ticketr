@@ -13,3 +13,17 @@ export interface RegisterInput {
   password: string;
   fullName: string;
 }
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  avatarUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    ticketsCreated: number;
+    messages: number;
+  };
+}

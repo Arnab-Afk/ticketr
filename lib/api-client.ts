@@ -48,6 +48,21 @@ class ApiClient {
       };
     }
   }
+
+  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      return await response.json();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Request failed",
+      };
+    }
+  }
 }
 
 export const apiClient = new ApiClient();

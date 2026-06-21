@@ -38,7 +38,16 @@ const staffLinks: NavLink[] = [
   {
     href: "/admin",
     label: "Queue",
-    isActive: (p) => p === "/admin" || p.startsWith("/admin/"),
+    isActive: (p) =>
+      p === "/admin" || p.startsWith("/admin/tickets/"),
+  },
+];
+
+const adminLinks: NavLink[] = [
+  {
+    href: "/admin/users",
+    label: "Users",
+    isActive: (p) => p.startsWith("/admin/users"),
   },
 ];
 
@@ -137,6 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const isStaff =
     session?.user?.role === "admin" || session?.user?.role === "agent";
+  const isAdmin = session?.user?.role === "admin";
   const isAuthed = !!session?.user?.id;
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -145,7 +155,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const links = isAuthed
-    ? [...(isStaff ? staffLinks : []), ...ticketLinks]
+    ? [
+        ...(isStaff ? staffLinks : []),
+        ...(isAdmin ? adminLinks : []),
+        ...ticketLinks,
+      ]
     : publicLinks;
 
   const logoHref = isStaff && isAuthed ? "/admin" : "/";
